@@ -37,13 +37,13 @@ def _register_contours(verts, tris, displacement, voxdim, destination):
 
         if unique_verts is None:
             print("Mesh slice empty")
+            reg_contours.append(None)
             continue
 
         manual = [region for name, region, _ in regions if name in ["Region 1", "Region 2"]]
         auto = [(unique_verts[line]/voxdim[0] + displacement)[:, :2] for line in lines]
-        corresp = mic.find_contour_correspondences(manual, auto)
 
-        registered = mic.register_contours(manual, auto) #, corresp)
+        registered = mic.register_contours(auto, manual) #manual, auto)
         reg_contours.append(registered)
         print()
 
