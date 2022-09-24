@@ -18,9 +18,11 @@ def combine_contours(registered_contours):
     verts_registered = []
     eds_registered = []
     num_eds_registered = 0
-    for i, regions in enumerate(registered_contours):
+    for slice_index, regions in enumerate(registered_contours):
+        if regions is None:
+            continue
         for region in regions:
-            verts_registered.extend([x, y, i] for x, y in region)
+            verts_registered.extend([x, y, slice_index] for x, y in region)
             eds_registered.extend(
                 [(num_eds_registered+i,
                   num_eds_registered+(i+1)%len(region)) for i in range(len(region))])
@@ -45,26 +47,29 @@ def compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered, 
     size = vmax_registered - vmin_registered
     size[2] = len(registered_contours)
     img_registered = np.zeros([int(x) + 2*offset for x in size], 'uint8')
-    print("volume shape:", img_registered.shape)
-    for slce in range(len(registered_contours)):
-        regions = registered_contours[slce]
+    for slice_index, regions in enumerate(registered_contours):
+        if regions is None:
+            continue
+        # regions = registered_contours[slice_index, regions]
         for region in regions:
             rows, cols = polygon(
                 region[:, 0] - vmin_registered[0],
                 region[:, 1] - vmin_registered[1],
                 img_registered.shape)
-            img_registered[rows+offset, cols+offset, slce+offset] = 255
+            img_registered[rows+offset, cols+offset, slice_index+offset] = 255
             rows, cols = polygon_perimeter(
                 region[:, 0] - vmin_registered[0],
                 region[:, 1] - vmin_registered[1],
                 img_registered.shape)
-            img_registered[rows+offset, cols+offset, slce+offset] = 0
+            img_registered[rows+offset, cols+offset, slice_index+offset] = 0
+    img_registered = img_registered[offset:-offset, offset:-offset, offset:-offset]
+    print("volume shape:", img_registered.shape)
     affine = np.eye(4)
     affine[0, 0] = voxdim[0]
     affine[1, 1] = voxdim[1]
     affine[2, 2] = voxdim[2]
 
-    return nib.Nifti1Image(img_registered, affine=affine)
+    return nib.Nifti1Image(img_registered.astype(np.int16), affine=affine)
 
 def compute_final_mask(
         voxdim=None,
