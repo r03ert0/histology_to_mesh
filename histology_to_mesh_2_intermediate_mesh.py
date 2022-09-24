@@ -21,10 +21,10 @@ def load_all_regions(path):
 def save_reference_image(all_regions, destination):
     '''save reference with all regions'''
     path = os.path.join(destination, "2_all_regions.svg")
-    plt.figure()
+    fig = plt.figure()
     mic.draw_all_dataset(all_regions)
     plt.savefig(path)
-    plt.close()
+    plt.close(fig)
 
 def compute_mask_volume(all_regions, regions, voxdim):
     '''make mask volume'''
@@ -38,7 +38,7 @@ def compute_mask_volume(all_regions, regions, voxdim):
     print("microdraw max:", vmax_mic)
     print("microdraw center:", center_mic)
 
-    voxdim = np.array([0.1, 0.1, 1.25])
+    # voxdim = np.array([0.1, 0.1, 1.25])
     nii_mic = mic.dataset_to_nifti(all_regions, voxdim=voxdim, region_name=regions)
     print("volume shape:", nii_mic.shape)
     print("volume sum:", np.sum(nii_mic.get_fdata())/1000)
@@ -61,7 +61,7 @@ def save_sdf_as_nii(img, voxdim, destination):
     affine[0, 0] = voxdim[0]
     affine[1, 1] = voxdim[1]
     affine[2, 2] = voxdim[2]
-    nii = nib.Nifti1Image(img, affine=affine)
+    nii = nib.Nifti1Image(img.astype(np.float32), affine=affine)
     path = os.path.join(destination, "4_sdf.nii.gz")
     nib.save(nii, path)
 
@@ -105,7 +105,7 @@ def make_intermediate_mesh(
 
     save_reference_image(all_regions, destination)
 
-    nii_mic, original_center = compute_mask_volume(all_regions, regions, destination)
+    nii_mic, original_center = compute_mask_volume(all_regions, regions, voxdim)
     path = os.path.join(destination, "3_mask.nii.gz")
     nib.save(nii_mic, path)
 
