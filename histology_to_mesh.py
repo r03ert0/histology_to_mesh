@@ -88,11 +88,39 @@ def main(argv):
 #   overwrite=False)
 
 # python histology_to_mesh.py FIIND https://microdraw.pasteur.fr/F107_P4_Nissl_x20/F107_P4.json "" "Region 1","Region 2" 0.1,0.1,1.25 ~/Desktop/out/ False
+
+# histology_to_mesh(
+#   project="FIINDgw",
+#   source="https://microdraw.pasteur.fr/F107_P4_Nissl_x20/F107_P4.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 1.25],
+#   destination="~/Desktop/p4-gw/",
+#   overwrite=True)
+
+# histology_to_mesh(
+#   project="FIINDnctx",
+#   source="https://microdraw.pasteur.fr/F107_P4_Nissl_x20/F107_P4.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 1.25],
+#   destination="~/Desktop/p4-nctx/",
+#   overwrite=True)
+
 histology_to_mesh(
   project="FIINDgw",
-  source="https://microdraw.pasteur.fr/F107_P4_Nissl_x20/F107_P4.json",
+  source="https://microdraw.pasteur.fr/F110_P8_Nissl_x20/F110_P8.json",
   token="",
   regions=["Region 1", "Region 2"],
-  voxdim=[0.1, 0.1, 1.25],
-  destination="~/Desktop/out-p4-gw-testing/",
+  voxdim=[0.1, 0.1, 2],
+  destination="~/Desktop/p8-gw/",
   overwrite=True)
+
+# histology_to_mesh(
+#   project="FIINDnctx",
+#   source="https://microdraw.pasteur.fr/F110_P8_Nissl_x20/F110_P8.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 2],
+#   destination="~/Desktop/p8-nctx/",
+#   overwrite=False)
