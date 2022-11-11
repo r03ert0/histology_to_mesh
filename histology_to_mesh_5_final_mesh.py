@@ -23,10 +23,10 @@ def make_sdf(destination):
     # smooth a bit
     return gaussian(res_registered, sigma=2)
 
-def make_mesh(sdf, voxdim):
+def make_mesh(sdf, voxdim, level=0):
     '''make the final mesh'''
     v_registered, f_registered, _, _ = measure.marching_cubes(
-        sdf, 0, spacing=voxdim,
+        sdf, spacing=voxdim, level=level,
         gradient_direction="ascent")
 
     # decimate the mesh
@@ -42,6 +42,7 @@ def make_mesh(sdf, voxdim):
 def make_final_mesh(
         voxdim=None,
         destination=None,
+        level=0,
         overwrite=False):
     '''make final mesh'''
 
@@ -55,5 +56,5 @@ mesh (set overwrite=True to compute it again).''')
     sdf = make_sdf(destination)
     if len(sdf.shape) == 4:
         sdf = sdf[:,:,:,0]
-    verts, tris = make_mesh(sdf, voxdim)
+    verts, tris = make_mesh(sdf, voxdim, level)
     igl.write_triangle_mesh(dst, verts, tris, force_ascii=False)

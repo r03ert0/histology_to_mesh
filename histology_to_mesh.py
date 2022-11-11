@@ -14,6 +14,7 @@ def histology_to_mesh(
     token=None,
     regions=None,
     voxdim=None,
+    level=0,
     destination=None,
     overwrite=False
 ):
@@ -29,6 +30,7 @@ def histology_to_mesh(
     print(f"      token: {token}")
     print(f"    regions: {regions}")
     print(f"     voxdim: {voxdim}")
+    print(f"      level: {level}")
     print(f"destination: {destination}")
     print(f"  overwrite: {overwrite}")
 
@@ -60,20 +62,21 @@ def histology_to_mesh(
 
     final.make_final_mesh(
         voxdim=voxdim,
+        level=level,
         destination=destination,
         overwrite=overwrite
     )
 
-def main(argv):
-  '''convenience histology_to_mesh call from the command line'''
-  _, project, source, token, regions, voxdim, destination, overwrite = argv
+# def main(argv):
+#   '''convenience histology_to_mesh call from the command line'''
+#   _, project, source, token, regions, voxdim, destination, overwrite = argv
 
-  regions = regions.split(",")
-  voxdim = [float(s) for s in voxdim.split(",")]
-  overwrite = overwrite=="True"
+#   regions = regions.split(",")
+#   voxdim = [float(s) for s in voxdim.split(",")]
+#   overwrite = overwrite=="True"
 
-  histology_to_mesh(project, source, token, regions,
-    voxdim, destination, overwrite)
+#   histology_to_mesh(project, source, token, regions,
+#     voxdim, destination, overwrite)
 
 # if __name__ == "__main__":
 #   main(sys.argv)
@@ -107,14 +110,14 @@ def main(argv):
 #   destination="~/Desktop/p4-nctx/",
 #   overwrite=True)
 
-histology_to_mesh(
-  project="FIINDgw",
-  source="https://microdraw.pasteur.fr/F110_P8_Nissl_x20/F110_P8.json",
-  token="",
-  regions=["Region 1", "Region 2"],
-  voxdim=[0.1, 0.1, 2],
-  destination="~/Desktop/p8-gw/",
-  overwrite=True)
+# histology_to_mesh(
+#   project="FIINDgw",
+#   source="https://microdraw.pasteur.fr/F110_P8_Nissl_x20/F110_P8.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 2],
+#   destination="~/Desktop/p8-gw/",
+#   overwrite=True)
 
 # histology_to_mesh(
 #   project="FIINDnctx",
@@ -123,4 +126,42 @@ histology_to_mesh(
 #   regions=["Region 1", "Region 2"],
 #   voxdim=[0.1, 0.1, 2],
 #   destination="~/Desktop/p8-nctx/",
+#   overwrite=False)
+
+# histology_to_mesh(
+#   project="FIINDgw",
+#   source="https://microdraw.pasteur.fr/F115_P16_Nissl_x20/F115_P16.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 1.6],
+#   destination="~/Desktop/p16-gw/",
+#   overwrite=True)
+
+# histology_to_mesh(
+#   project="FIINDnctx",
+#   source="https://microdraw.pasteur.fr/F115_P16_Nissl_x20/F115_P16.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 1.6],
+#   destination="~/Desktop/p16-nctx/",
+#   overwrite=False)
+
+histology_to_mesh(
+  project="FIINDgw",
+  source="https://microdraw.pasteur.fr/F119_P32_Nissl_x20/F119_P32.json",
+  token="",
+  regions=["Region 1", "Region 2"],
+  voxdim=[0.1, 0.1, 1.2],
+  level=-1,
+  destination="~/Desktop/p32-gw/",
+  overwrite=False)
+
+# histology_to_mesh(
+#   project="FIINDnctx",
+#   source="https://microdraw.pasteur.fr/F119_P32_Nissl_x20/F119_P32.json",
+#   token="",
+#   regions=["Region 1", "Region 2"],
+#   voxdim=[0.1, 0.1, 1.2],
+#   level=2,
+#   destination="~/Desktop/p32-nctx/",
 #   overwrite=False)
