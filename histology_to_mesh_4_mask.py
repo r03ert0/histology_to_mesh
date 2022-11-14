@@ -1,5 +1,5 @@
 '''
-Part 4. SDF volume from registered contours
+Part 4. Mask volume from registered contours
 '''
 import os
 import numpy as np
@@ -39,13 +39,24 @@ def get_volume_min_max(verts_registered):
         np.max(verts_registered, axis=0))
     vmin_registered = np.floor(vmin_registered)
     vmax_registered = np.ceil(vmax_registered)
+    center = (vmax_registered + vmin_registered)/2
+    print(f"contours min: {vmin_registered}")
+    print(f"contours max: {vmax_registered}")
+    print(f"contours center: {center}")
 
-    return vmin_registered, vmax_registered
+    return vmin_registered, vmax_registered, center
 
 def compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered, offset=2):
     '''make a nifti volume with a brain mask'''
     size = vmax_registered - vmin_registered
     size[2] = len(registered_contours)
+
+    print('''@todo:
+1) the offset thing here looks quite useless. It may be useful
+   for the computation of the final mesh, but here I think it
+   doesn't do anything (to check).
+2) how does this function compare with mic.dataset_to_nifti?''')
+
     img_registered = np.zeros([int(x) + 2*offset for x in size], 'uint8')
     for slice_index, regions in enumerate(registered_contours):
         if regions is None:
@@ -75,7 +86,7 @@ def compute_final_mask(
         voxdim=None,
         destination=None,
         overwrite=False):
-    '''compute the final sdf from the registered contours'''
+    '''compute the final mask from the registered contours'''
 
     dst = os.path.join(destination, "8_final_mask.nii.gz")
     if not overwrite and os.path.exists(dst):
@@ -86,6 +97,8 @@ mask (set overwrite=True to compute it again).''')
 
     registered_contours = load_registered_contours(destination)
     verts_registered, _ = combine_contours(registered_contours)
-    vmin_registered, vmax_registered = get_volume_min_max(verts_registered)
+    vmin_registered, vmax_registered, center = get_volume_min_max(verts_registered)
     mask = compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered)
     nib.save(mask, dst)
+    path = os.path.join(destination, "9_contours_center.npz")
+    np.savez_compressed(path, contours_center=center)

@@ -1,0 +1,537 @@
+<html>
+    <head>
+        <title>Register Contours</title>
+    </head>
+    <body>
+        <style>
+            svg {
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+            #contours {
+                perspective: 600px;
+                perspective-origin: 50% 50%;
+                transform-style: preserve-3d;
+            }
+            #controls {
+                position: absolute;
+                width: 100%;
+                top: 0;
+                left: 0;
+                padding: 5px;
+                z-index: 10;
+            }
+            path {
+                stroke-opacity: 0.5;
+            }
+            path.contour {
+                stroke: #000;
+                fill: rgba(0, 0, 0, 0.01);
+            }
+            .selected > .group > path {
+                stroke: #0f0;
+                stroke-width: 5px;
+                stroke-opacity: 1;
+                fill: rgba(0,255,0,0.5);
+            }
+            .before > .group > path {
+                stroke: #a66;
+                stroke-width: 3px;
+                stroke-opacity: 1;
+            }
+            .after > .group > path {
+                stroke: #622;
+                stroke-width: 3px;
+                stroke-opacity: 1;
+            }
+        </style>
+
+        <svg></svg>
+
+        <svg id="grid" width="100%" height="100%" viewBox="0 0 1000 1000">
+            <path stroke="#77d" fill="none" d="M500,0L500,1000" />
+            <path stroke="#77d" fill="none" d="M0,500L1000,500" />
+        </svg>
+
+        <div id="controls">
+            <label>Slice space
+                <input id="dispZ" min=10 max=100 value=10 width="100%" type="range" oninput="transform(event);"/>
+            </label>
+            <label>Path rotation
+                <input id="rot" min=-180 max=180 value=0 width="100%" type="range" oninput="rotate(event);"/>
+            </label>
+            <label>Model rotation X
+                <input id="rotationX" min=0 max=90 value=0 width="100%" type="range" oninput="transform(event);"/>
+            </label>
+            <label>Model rotation Y
+                <input id="rotationY" min=0 max=90 value=0 width="100%" type="range" oninput="transform(event);"/>
+            </label>
+            <label>Slice
+                <input id="slider" width="100%" type="range" oninput="slider(event);"/>
+                <span></span>
+                <button onclick="prev();">-</button>
+                <button onclick="next();">+</button>    
+            </label>
+            <div id="paths"></div>
+            <button onclick="saveJSON();">Save JSON</button>
+            <button onclick="saveSVG();">Save SVG</button>
+            <button onclick="loadSVG();">Load SVG</button>
+        </div>
+
+        <script>
+let origPos;
+let origTransformXY;
+let origTransformA;
+let origPathTransform = [];
+let mouseIsDown = false;
+const reX = /translateX\(([^p]+)px\)/;
+const reY = /translateY\(([^p]+)px\)/;
+const entered = false;
+
+/*-------------------------------------------*/
+/* This line is changed by the python script */
+let nslices;
+/*-------------------------------------------*/
+
+const pathVerts = (el) => {
+    const d = el.getAttribute("d");
+    let verts = d.split(/[MLZ]/).slice(1, -1).map((r) => {
+        return r.split(",").map(Number);
+    });
+    return verts;
+};
+
+const applyPathTranslation = (el, dx, dy) => {
+    const verts = pathVerts(el);
+    const newVerts = "M" + verts.map(([x,y])=>`${x+dx},${y+dy}`).join("L") + "Z";
+    el.setAttribute("d", newVerts);
+};
+
+const applyPathRotation = (el, angle) => {
+    const verts = pathVerts(el);
+    const [cx, cy] = [500, 500];
+
+    const newVerts = "M" + verts.map(([x, y]) => {
+        const rad = -angle * Math.PI / 180;
+        const newX = (x-cx)*Math.cos(rad) + (y-cy)*Math.sin(rad) + cx;
+        const newY = -(x-cx)*Math.sin(rad) + (y-cy)*Math.cos(rad) + cy;
+        return `${newX},${newY}`;
+    }).join("L") + "Z";
+    el.setAttribute("d", newVerts);
+};
+
+const applyPathTransforms = (el) => {
+    if (!el.style || !el.style.transform) {
+        return el;
+    }
+
+    const tr = el.style.transform;
+
+    // apply translate transform
+    const xy = tr.match(/translate\(([^p]+)px,([^p]+)px\)/);
+    if (xy) {
+        const [dx, dy] = [Number(xy[1]), Number(xy[2])];
+        applyPathTranslation(el, dx, dy);
+    }
+
+    // apply rotate transform
+    const a = tr.match(/rotate\(([^d]+)deg\)/);
+    if (a) {
+        applyPathRotation(el, Number(a[1]));
+    }
+
+    // reset transform
+    el.style.transform = "rotate(0deg) translate(0px,0px)";
+};
+
+/** apply group transforms to inner paths */
+const applyGroupTransforms = (g) => {
+    if (!g.style || !g.style.transform) {
+        return g;
+    }
+
+    let tr = g.style.transform;
+
+    // apply translate and rotate transforms
+    const dx = Number(tr.match(/translateX\(([^p]+)px\)/)[1]);
+    const dy = Number(tr.match(/translateY\(([^p]+)px\)/)[1]);
+    const angle = Number(tr.match(/rotate\(([^d]+)deg\)/)[1]);
+
+    g.querySelectorAll("path").forEach((el) => {
+        applyPathTransforms(el);
+        applyPathTranslation(el, dx, dy);
+        applyPathRotation(el, angle);
+    });
+
+    // reset transforms
+    tr = tr.replace(/translateX\([^p]+px\)/, "translateX(0px)");
+    tr = tr.replace(/translateY\([^p]+px\)/, "translateY(0px)");
+    tr = tr.replace(/rotate\([^d]+deg\)/, "rotate(0deg)");
+    g.style.transform = tr;
+};
+
+const applyTransforms = (svg) => {
+    const slices = svg.querySelectorAll("g>.group");
+    slices.forEach((slice) => {
+        applyGroupTransforms(slice);
+    });
+};
+
+const flatSVG = () => {
+    let svg = document.querySelector("#contours").cloneNode(true);
+    applyTransforms(svg);
+    return svg;
+};
+
+const saveJSON = () => {
+    const svg = flatSVG();
+
+    const textData = [];
+    // const svg = document.querySelector("#contours");
+    const slices = svg.querySelectorAll("g");
+    slices.forEach((slice) => {
+        sliceText = [];
+        const paths = slice.querySelectorAll("path");
+        paths.forEach((el) => {
+            sliceText.push(
+                pathVerts(el)
+                .map((xy) => [
+                    xy[0], xy[1],
+                    Number(el.parentElement.parentElement.id.replace("s",""))
+                ])
+            );
+        });
+        textData.push(sliceText);
+    });
+
+    var textBlob = new Blob([JSON.stringify(textData)], {type:"application/json;charset=utf-8"});
+    var textUrl = URL.createObjectURL(textBlob);
+    var downloadLink = document.createElement("a");
+    downloadLink.href = textUrl;
+    downloadLink.download = "brain.json";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+};
+
+const saveSVG = () => {
+    let svgData = document.querySelector("#contours").outerHTML;
+    var svgBlob = new Blob([svgData], {type:"image/svg+xml;charset=utf-8"});
+    var svgUrl = URL.createObjectURL(svgBlob);
+    var downloadLink = document.createElement("a");
+    downloadLink.href = svgUrl;
+    downloadLink.download = "brain.svg";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+};
+
+const loadSVG = () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.onchange = (e) => {
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const result = e.target.result;
+        const div = document.createElement("div");
+        div.innerHTML = result;
+        document.querySelector("svg#contours").innerHTML = div.querySelector("svg").innerHTML;
+
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+};
+
+const prev = () => {
+    const input = document.querySelector("input#slider");
+    const cur = Number(input.value);
+    if (cur > 0) {
+        input.value = cur - 1;
+        selectSlice(cur - 1);
+    }
+}
+
+const next = () => {
+    const input = document.querySelector("input#slider");
+    const cur = Number(input.value);
+    if (cur < nslices) {
+        input.value = cur + 1;
+        selectSlice(cur + 1);
+    }
+}
+
+const selectSlice = (slce) => {
+    slce = Number(slce);
+    document.querySelectorAll("g").forEach((el) => {
+        el.classList.remove("selected");
+        el.classList.remove("before");
+        el.classList.remove("after");
+    });
+    slceDom = document.querySelector(`#s${slce}`);
+    if (!slceDom) {
+        return;
+    }
+
+    // highlight the selected slice and the ones before and after
+    slceDom.classList.add("selected");
+    if (slce - 1 >= 0) {
+        const slceDom = document.querySelector(`#s${slce - 1}`);
+        if (slceDom) {
+            slceDom.classList.add("before");
+        }
+    }
+    if (slce + 1 < nslices) {
+        const slceDom = document.querySelector(`#s${slce + 1}`);
+        if (slceDom) {
+            slceDom.classList.add("after");
+        }
+    }
+
+    // display the selected slice number
+    document.querySelector("span").innerText = slce;
+
+    // add selector for individual slice paths
+    const paths = document.querySelectorAll(`#s${slce}>.group>path`);
+    let str = "";
+    for (let i=0; i<paths.length; i++) {
+        str += "<input type=\"checkbox\" checked />";
+    }
+    document.querySelector("#paths").innerHTML = str;
+
+    // get the current path group rotation
+    const group = slceDom.querySelector(".group");
+    const tr = group.style.transform;
+    const a = tr.match(/rotate\(([^d]+)deg\)/);
+    origTransformA =  Number(a[1]);
+    const input = document.querySelector("input#rot");
+    input.value = origTransformA;
+}
+
+/* UI controls */
+const transform = (e) => {
+    const dispZ = Number(document.querySelector("input#dispZ").value);
+    const degX = Number(document.querySelector("input#rotationX").value);
+    const degY = Number(document.querySelector("input#rotationY").value);
+    for(let i=0; i<nslices; i++) {
+        const slceDom = document.querySelector(`#s${i}`);
+        if (!slceDom) {
+            continue;
+        }
+        let tr = slceDom.style.transform;
+        tr = tr.replace(/rotateX\(([^d]+)deg\)/, `rotateX(${degX}deg)`);
+        tr = tr.replace(/rotateY\(([^d]+)deg\)/, `rotateY(${degY}deg)`);
+        tr = tr.replace(/translateZ\(([^p]+)px\)/, `translateZ(${dispZ*(nslices/2 - i)}px)`);
+        slceDom.style.transform = tr;
+    }
+};
+
+const rotate = (e) => {
+    const rot = Number(document.querySelector("input#rot").value);
+    const slce = Number(document.querySelector("input#slider").value);
+    let allInput = document.querySelectorAll("input[type=checkbox]");
+    let selectedInput = document.querySelectorAll("input[type=checkbox]:checked");
+
+    if (allInput.length === selectedInput.length) {
+        const group = document.querySelector(`#s${slce}>.group`);
+        const tr = group.style.transform;
+        group.style.transform = tr.replace(/rotate\(([^d]+)deg\)/, `rotate(${rot}deg)`);
+    } else {
+        selectedInput = selectedInput[0];
+        for (let i=0; i<allInput.length; i++) {
+            if (allInput[i] === selectedInput) {
+                const path = document.querySelector(`#s${slce}>.group>path:nth-child(${i+1})`);
+                const tr = path.style.transform;
+                // const num = Number(document.querySelector("input#rot").value);
+                if (!tr.match("rotate")) {
+                    path.style.transform = `rotate(${rot}deg) ${tr}`;
+                } else {
+                    path.style.transform = tr.replace(/rotate\(([^d]+)deg\)/, `rotate(${rot}deg)`);
+                }
+            }
+        }
+    }
+};
+
+const slider = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    selectSlice(e.target.value);
+    mouseIsDown = false;
+};
+
+const mouseDown = (e) => {
+    if (e.target !== document.querySelector("#grid")) {
+        return;
+    }
+
+    origPos = [e.clientX, e.clientY];
+
+    origTransformXY = [0, 0];
+    origTransformA = 0;
+
+    slce = Number(document.querySelector("input#slider").value);
+
+    // determine whether to move the whole slice or individual paths
+    const pathsInputDom = document.querySelectorAll("#paths > input");
+    const pathsInputCheckedDom = document.querySelectorAll("#paths > input:checked");
+    const allSelected = pathsInputDom.length === pathsInputCheckedDom.length;
+    if (allSelected) {
+        const slceDom = document.querySelector(`#s${slce} > .group`);
+        if (slceDom) {
+            let tr = slceDom.style.transform;
+            if (tr) {
+                const matchX = tr.match(reX);
+                const matchY = tr.match(reY);
+                const a = tr.match(/rotate\(([^d]+)deg\)/);
+                if (!matchX || !matchY) {
+                    return;
+                }
+                origTransformXY = [Number(matchX[1]), Number(matchY[1])];
+                origTransformA =  Number(a[1]);
+            }
+        }
+    } else {
+        const pathChecks = document.querySelectorAll("#paths > input");
+        const paths = document.querySelectorAll(`#s${slce}>.group>path`);
+        origPathTransform.length = 0;
+        for (let i=0;i<paths.length; i++) {
+            const tr = paths[i].style.transform;
+            const match = tr.match(/translate\(([^p]+)px,([^p]+)px\)/);
+            if (match) {
+                origPathTransform.push([Number(match[1]), Number(match[2])]);
+            } else {
+                origPathTransform.push([0, 0]);
+            }
+        }
+        
+    }
+
+    mouseIsDown = true;
+};
+
+const mouseMove = (e) => {
+    if (e.target !== document.querySelector("#grid")) {
+        return;
+    }
+
+    if(!mouseIsDown) {
+        return;
+    }
+
+    curPos = [e.clientX, e.clientY];
+
+    if (curPos[0] === origPos[0] && curPos[1] === origPos[1]) {
+        return;
+    }
+
+    slce = Number(document.querySelector("input#slider").value);
+
+    // determine whether we are translating or rotating (shift key pressed)
+    const isTranslation = e.shiftKey === false;
+
+    // determine whether to move the whole slice or individual paths
+    const allSelected = document.querySelectorAll("#paths > input").length === document.querySelectorAll("#paths > input:checked").length;
+
+    if (allSelected) {
+        const slceDom = document.querySelector(`#s${slce} > .group`);
+        if (slceDom) {
+            let tr = slceDom.style.transform;
+
+            if (isTranslation) {
+                const dx = origTransformXY[0] + curPos[0] - origPos[0];
+                const dy = origTransformXY[1] + curPos[1] - origPos[1];
+                tr = tr.replace(/translateX\(([^p]+)px\)/, `translateX(${dx}px)`);
+                tr = tr.replace(/translateY\(([^p]+)px\)/, `translateY(${dy}px)`);
+            } else {
+                const angle = origTransformA + curPos[0] - origPos[0];
+                tr = tr.replace(/rotate\(([^d]+)deg\)/, `rotate(${angle}deg)`);
+                const input = document.querySelector("input#rot");
+                input.value = angle;
+            }
+            slceDom.style.transform = tr;
+        }
+    } else {
+        const pathChecks = document.querySelectorAll("#paths>input");
+        const paths = document.querySelectorAll(`#s${slce}>.group>path`);
+        for (let i=0;i<paths.length; i++) {
+            if (pathChecks[i].checked === false) {
+                continue;
+            }
+            const dx = origPathTransform[i][0] + curPos[0] - origPos[0];
+            const dy = origPathTransform[i][1] + curPos[1] - origPos[1];
+            let tr = paths[i].style.transform;
+            if (tr.match("translate")) {
+                tr = tr.replace(/translate\([^p]+px,[^p]+px\)/, `translate(${dx}px,${dy}px)`);
+            } else {
+                tr = `${tr} translate(${dx}px,${dy}px)`;
+            }
+            paths[i].style.transform = tr;                
+        }
+    }
+};
+
+const mouseUp = (e) => {
+    if (e.target !== document.querySelector("#grid")) {
+        return;
+    }
+
+    mouseIsDown = false;
+};
+
+const keyPress = (e) => {
+    console.log(e.code);
+
+    switch(e.code) {
+        case 'KeyA':
+            prev();
+            break;
+        case 'KeyS':
+            next();
+            break;
+    }
+
+    if(e.code.match("Digit")) {
+        const match = e.code.match(/Digit(\d)/);
+        if (match) {
+            const num = Number(match[1]) - 1;
+            const slce = Number(document.querySelector("input#slider").value);
+            const paths = document.querySelectorAll(`#s${slce}>.group>path`);
+            if (num >= 0 && num < paths.length) {
+                document.querySelectorAll("input[type=checkbox]").forEach((el) => {
+                    el.checked = false;
+                });
+                document
+                    .querySelector(`input[type=checkbox]:nth-child(${num + 1})`)
+                    .checked = true;
+            }
+        }
+    }
+};
+
+const init = () => {
+    document.addEventListener('mousedown', mouseDown);
+    document.addEventListener('mousemove', mouseMove);
+    document.addEventListener('mouseup', mouseUp);
+    document.addEventListener('keypress', keyPress);
+    document.querySelector("input#slider").min = 0;
+    document.querySelector("input#slider").max = nslices - 1;
+    document.querySelector("input#slider").value = 0;
+
+    // for(i=0;i<nslices;i++) {
+    //     const slceDom = document.querySelector(`#s${i}`);
+    //     if (slceDom) {
+    //         slceDom.style.transformOrigin = `center center`;
+    //         slceDom.style.transform = `rotateX(0deg) rotateY(0deg) translateX(0px) translateY(0px) translateZ(${-i*10+nslices*10/2}px)`;
+    //     }
+    // }
+
+    selectSlice(0);
+}
+
+init();
+        </script>
+    </body>
+</html>

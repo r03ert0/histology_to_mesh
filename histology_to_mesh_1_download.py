@@ -5,7 +5,7 @@ Part 1: Download and save all regions from microdraw
 import os
 import sys
 import numpy as np
-sys.path.append("/Users/roberto/Documents/annex-ferret-histology/bin/microdraw.py/")
+sys.path.append("./bin/microdraw.py/")
 import microdraw as mic
 
 def download_from_microdraw_and_save(

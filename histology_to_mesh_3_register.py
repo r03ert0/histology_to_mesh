@@ -6,8 +6,9 @@ import os
 import sys
 import numpy as np
 import igl
-sys.path.append("/Users/roberto/Documents/annex-ferret-histology/bin/microdraw.py/")
+sys.path.append("./bin/microdraw.py/")
 import microdraw as mic
+from tqdm import tqdm
 
 def load_intermediate_mesh(destination):
     '''load intermediate mesh (registration target)'''
@@ -25,8 +26,7 @@ def _register_contours(verts, tris, displacement, voxdim, destination):
     all_regions = np.load(path, allow_pickle=True)["all_regions"].tolist()
 
     reg_contours = []
-    for slice_index in range(all_regions["numSlices"]):
-        print("Registering slice %i"%(slice_index))
+    for slice_index in tqdm(range(all_regions["numSlices"])):
 
         # slice annotations
         regions = mic.get_regions_from_dataset_slice(all_regions["slices"][slice_index])
@@ -36,7 +36,7 @@ def _register_contours(verts, tris, displacement, voxdim, destination):
             verts, tris, (slice_index-displacement[2])*voxdim[2])
 
         if unique_verts is None:
-            print("Mesh slice empty")
+            # print("Mesh slice empty")
             reg_contours.append(None)
             continue
 
@@ -44,8 +44,11 @@ def _register_contours(verts, tris, displacement, voxdim, destination):
         auto = [(unique_verts[line]/voxdim[0] + displacement)[:, :2] for line in lines]
 
         registered = mic.register_contours(auto, manual) #manual, auto)
-        reg_contours.append(registered)
-        print()
+        if registered is None:
+            print(f"WARNING: Registration was not possible at slice {slice_index}")
+            reg_contours.append(manual)
+        else:
+            reg_contours.append(registered)
 
     return reg_contours
 
@@ -71,4 +74,4 @@ contours (set overwrite=True to compute them again).''')
     np.savez_compressed(
         path,
         allow_pickle=True,
-        registered_contours=reg_contours)
+        registered_contours=np.array(reg_contours, dtype=object))

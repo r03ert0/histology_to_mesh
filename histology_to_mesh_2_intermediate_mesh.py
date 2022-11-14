@@ -10,7 +10,7 @@ from skimage import measure
 import igl
 import numpy as np
 
-sys.path.append("/Users/roberto/Documents/annex-ferret-histology/bin/microdraw.py/")
+sys.path.append("./bin/microdraw.py/")
 import microdraw as mic
 mic.version()
 
@@ -27,21 +27,21 @@ def save_reference_image(all_regions, destination):
     plt.close(fig)
 
 def compute_mask_volume(all_regions, regions, voxdim):
-    '''make mask volume'''
+    '''make mask nifti'''
 
     verts_mic, _ = mic.dataset_as_volume(all_regions)
     vmin_mic, vmax_mic = np.min(verts_mic, axis=0), np.max(verts_mic, axis=0)
     vmin_mic = np.floor(vmin_mic)
     vmax_mic = np.ceil(vmax_mic)
     center_mic = (vmax_mic + vmin_mic)/2
-    print("microdraw min:", vmin_mic)
-    print("microdraw max:", vmax_mic)
-    print("microdraw center:", center_mic)
+    print("contours min:", vmin_mic)
+    print("contours max:", vmax_mic)
+    print("contours center:", center_mic)
 
     # voxdim = np.array([0.1, 0.1, 1.25])
     nii_mic = mic.dataset_to_nifti(all_regions, voxdim=voxdim, region_name=regions)
-    print("volume shape:", nii_mic.shape)
-    print("volume sum:", np.sum(nii_mic.get_fdata())/1000)
+    print("nifti shape:", nii_mic.shape)
+    print("nifti sum:", np.sum(nii_mic.get_fdata())/1000)
 
     return nii_mic, center_mic
 
@@ -66,18 +66,21 @@ def save_sdf_as_nii(img, voxdim, destination):
     nib.save(nii, path)
 
 def compute_mesh(sdf, voxdim, original_center):
-    '''make raw mesh'''
-    v_marching_cubes_1, f_marching_cubes_1, _, _ = measure.marching_cubes(
+    '''make the intermediate mesh'''
+
+    print("@todo: compute_mesh in hm_2 is identical to make_mesh in hm_5")
+
+    v_marching_cubes, f_marching_cubes, _, _ = measure.marching_cubes(
         sdf, 0, spacing=voxdim,
         gradient_direction="ascent")
 
     # transform to match space
-    new_center_1 = (np.min(v_marching_cubes_1, axis=0) + np.max(v_marching_cubes_1, axis=0))/2
-    print("new center 1:", new_center_1)
-    displacement = original_center - new_center_1/voxdim
+    mesh_center = (np.min(v_marching_cubes, axis=0) + np.max(v_marching_cubes, axis=0))/2
+    print("mesh center:", mesh_center)
+    displacement = original_center - mesh_center/voxdim
 
     # decimate
-    success, verts, f_1, _, _ = igl.decimate(v_marching_cubes_1, f_marching_cubes_1, 10000)
+    success, verts, f_1, _, _ = igl.decimate(v_marching_cubes, f_marching_cubes, 10000)
     print("decimation success:", success)
 
     # improve triangulation
