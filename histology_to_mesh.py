@@ -88,14 +88,14 @@ def main(argv):
   voxdim = [float(s) for s in voxdim.split(",")]
   overwrite = overwrite=="True"
 
-  print("project:", project)
-  print("source:", source)
-  print("token:", token)
-  print("regions:", regions)
-  print("voxdim:", voxdim)
-  print("level:", level)
-  print("destination:", destination)
-  print("overwrite:", overwrite)
+  print(f"    project: {project}")
+  print(f"     source: {source}")
+  print(f"      token: {token}")
+  print(f"    regions: {regions}")
+  print(f"     voxdim: {voxdim}")
+  print(f"      level: {level}")
+  print(f"destination: {destination}")
+  print(f"  overwrite: {overwrite}")
 
   histology_to_mesh(project, source, token, regions,
     voxdim, level, destination, overwrite)
