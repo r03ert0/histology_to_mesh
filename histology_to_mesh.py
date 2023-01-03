@@ -82,14 +82,23 @@ def histology_to_mesh(
 
 def main(argv):
   '''convenience histology_to_mesh call from the command line'''
-  _, project, source, token, regions, voxdim, destination, overwrite = argv
+  _, project, source, token, regions, voxdim, level, destination, overwrite = argv
 
   regions = regions.split(",")
   voxdim = [float(s) for s in voxdim.split(",")]
   overwrite = overwrite=="True"
 
+  print("project:", project)
+  print("source:", source)
+  print("token:", token)
+  print("regions:", regions)
+  print("voxdim:", voxdim)
+  print("level:", level)
+  print("destination:", destination)
+  print("overwrite:", overwrite)
+
   histology_to_mesh(project, source, token, regions,
-    voxdim, destination, overwrite)
+    voxdim, level, destination, overwrite)
 
 if __name__ == "__main__":
   main(sys.argv)

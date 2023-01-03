@@ -63,6 +63,9 @@ def compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered, 
             continue
         # regions = registered_contours[slice_index, regions]
         for region in regions:
+            if region.shape[0] < 3:
+                print("WARNING: Region with too few vertices", region.shape)
+                continue
             rows, cols = polygon(
                 region[:, 0] - vmin_registered[0],
                 region[:, 1] - vmin_registered[1],
