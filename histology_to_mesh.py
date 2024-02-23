@@ -134,11 +134,20 @@ def histology_to_mesh_wf1(
 
 def main(argv):
   '''convenience histology_to_mesh call from the command line'''
-  _, project, source, token, regions, voxdim, destination, overwrite = argv
+  _, project, source, token, regions, voxdim, level, destination, overwrite = argv
 
   regions = regions.split(",")
   voxdim = [float(s) for s in voxdim.split(",")]
   overwrite = overwrite=="True"
+
+  print(f"    project: {project}")
+  print(f"     source: {source}")
+  print(f"      token: {token}")
+  print(f"    regions: {regions}")
+  print(f"     voxdim: {voxdim}")
+  print(f"      level: {level}")
+  print(f"destination: {destination}")
+  print(f"  overwrite: {overwrite}")
 
   histology_to_mesh_wf1(project, source, token, regions,
     voxdim, destination, overwrite)
