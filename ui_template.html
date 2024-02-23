@@ -189,7 +189,7 @@ const saveJSON = () => {
 
     const textData = [];
     // const svg = document.querySelector("#contours");
-    const slices = svg.querySelectorAll("g");
+    const slices = svg.querySelectorAll("g:not(.group");
     slices.forEach((slice) => {
         sliceText = [];
         const paths = slice.querySelectorAll("path");
@@ -198,7 +198,7 @@ const saveJSON = () => {
                 pathVerts(el)
                 .map((xy) => [
                     xy[0], xy[1],
-                    Number(el.parentElement.parentElement.id.replace("s",""))
+                    Number(el.parentElement.parentElement.id.replace("s", ""))
                 ])
             );
         });

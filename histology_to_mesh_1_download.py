@@ -5,7 +5,9 @@ Part 1: Download and save all regions from microdraw
 import os
 import sys
 import numpy as np
-sys.path.append("./bin/microdraw.py/")
+
+dirname = os.path.dirname(__file__)
+sys.path.append(os.path.join(dirname, "bin/microdraw.py/"))
 import microdraw as mic
 
 def download_from_microdraw_and_save(

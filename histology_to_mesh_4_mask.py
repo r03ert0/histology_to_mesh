@@ -4,6 +4,7 @@ Part 4. Mask volume from registered contours
 import os
 import numpy as np
 from skimage.draw import polygon, polygon_perimeter
+from scipy import ndimage as ndi
 import nibabel as nib
 
 def load_registered_contours(destination):
@@ -47,32 +48,42 @@ def get_volume_min_max(verts_registered):
     return vmin_registered, vmax_registered, center
 
 def compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered, offset=2):
-    '''make a nifti volume with a brain mask'''
+    '''Make a nifti volume with a brain mask.
+    The offset is to prevent errors when filling the contours if they touch the border of the volume.'''
     size = vmax_registered - vmin_registered
     size[2] = len(registered_contours)
 
     print('''@todo:
-1) the offset thing here looks quite useless. It may be useful
-   for the computation of the final mesh, but here I think it
-   doesn't do anything (to check).
-2) how does this function compare with mic.dataset_to_nifti?''')
+1) how does this function compare with mic.dataset_to_nifti?''')
 
-    img_registered = np.zeros([int(x) + 2*offset for x in size], 'uint8')
+    img_registered = np.zeros([int(x) + 2*offset for x in size], 'float32') # 'uint8')
     for slice_index, regions in enumerate(registered_contours):
         if regions is None:
             continue
         # regions = registered_contours[slice_index, regions]
         for region in regions:
-            rows, cols = polygon(
-                region[:, 0] - vmin_registered[0],
-                region[:, 1] - vmin_registered[1],
-                img_registered.shape)
-            img_registered[rows+offset, cols+offset, slice_index+offset] = 255
-            rows, cols = polygon_perimeter(
-                region[:, 0] - vmin_registered[0],
-                region[:, 1] - vmin_registered[1],
-                img_registered.shape)
-            img_registered[rows+offset, cols+offset, slice_index+offset] = 0
+            if region.shape[0] < 3:
+                print("WARNING: Region with too few vertices", region.shape)
+                continue
+            try:
+                rows, cols = polygon(
+                    region[:, 0] - vmin_registered[0],
+                    region[:, 1] - vmin_registered[1],
+                    img_registered.shape)
+                img_registered[rows+offset, cols+offset, slice_index+offset] = 255
+                rows, cols = polygon_perimeter(
+                    region[:, 0] - vmin_registered[0],
+                    region[:, 1] - vmin_registered[1],
+                    img_registered.shape)
+                img_registered[rows+offset, cols+offset, slice_index+offset] = 0
+
+                # nimg_registered = img_registered == 0
+                psdf = ndi.distance_transform_edt(img_registered[:, :, slice_index+offset]>0)
+                # nsdf = ndi.distance_transform_edt(nimg_registered[:, :, slice_index+offset])
+                # sdf = psdf - nsdf
+                img_registered[:, :, slice_index+offset] = psdf # sdf
+            except Exception as err:
+                raise Exception(f"ERROR in slice {slice_index}") from err
     img_registered = img_registered[offset:-offset, offset:-offset, offset:-offset]
     print("volume shape:", img_registered.shape)
     affine = np.eye(4)
@@ -83,6 +94,7 @@ def compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered, 
     return nib.Nifti1Image(img_registered.astype(np.int16), affine=affine)
 
 def compute_final_mask(
+        registered_contours=None,
         voxdim=None,
         destination=None,
         overwrite=False):
@@ -95,7 +107,8 @@ mask (set overwrite=True to compute it again).''')
         return
     print("Computing the final mask")
 
-    registered_contours = load_registered_contours(destination)
+    if registered_contours is None:
+        registered_contours = load_registered_contours(destination)
     verts_registered, _ = combine_contours(registered_contours)
     vmin_registered, vmax_registered, center = get_volume_min_max(verts_registered)
     mask = compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered)

@@ -19,14 +19,16 @@ def json2array(data):
     index in the new registered_contours array is the slice
     index.'''
 
-    max_slice_index = find_max_slice_index(data)
+    max_slice_index = int(find_max_slice_index(data))
     print(f"{max_slice_index} slices")
 
-    registered_contours = [None] * (max_slice_index + 1)
+    registered_contours = [None] * (max_slice_index + 5) # add a few empty slices to the end
 
     for row in data:
+        if len(row) == 0:
+            continue
         new_row = []
-        slice_index = row[0][0][2] # 1st path, 1st vert, 3rd coordinate
+        slice_index = int(row[0][0][2]) # 1st path, 1st vert, 3rd coordinate
         for path in row:
             new_path = np.array(path)
             new_row.append(new_path[:, :2]) # store only x and y coordinates
