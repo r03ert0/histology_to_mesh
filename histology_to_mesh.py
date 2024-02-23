@@ -100,5 +100,32 @@ def main(argv):
   histology_to_mesh(project, source, token, regions,
     voxdim, level, destination, overwrite)
 
-if __name__ == "__main__":
-  main(sys.argv)
+# if __name__ == "__main__":
+#   main(sys.argv)
+
+
+'''
+Fixing a bug
+5 Nov 2023
+When running the following command, there's this bug:
+...
+3. register contours
+Registering contours
+41%|*****     | 30/74
+
+in histology_to_mesh_3_register.py, when calling line 35
+unique_verts, _, _, lines = mic.mesh.slice_mesh(...
+the lines[0] indexes vertices beyond the length of unique_verts.
+unique_verts has 206 vertices, and there's a reference to
+vertex 209.
+'''
+histology_to_mesh(
+   project="clann",
+   source="https://microdraw.pasteur.fr/guineapig_cor_cell/guineapig_cor_cell.json",
+    token="m7v5791hiwmsbkdngrzl8",
+    regions=["Region 1"],
+    voxdim=[1,1,18],
+     level=-1,
+      destination="/Users/roberto/Desktop/clann",
+       overwrite=False
+)

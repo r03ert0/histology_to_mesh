@@ -40,8 +40,12 @@ def _register_contours(verts, tris, displacement, voxdim, destination):
             reg_contours.append(None)
             continue
 
-        manual = [region for name, region, _ in regions if name in ["Region 1", "Region 2"]]
         auto = [(unique_verts[line]/voxdim[0] + displacement)[:, :2] for line in lines]
+
+        manual = [region for name, region, _ in regions if name in ["Region 1", "Region 2"] and len(region)>5]
+        if len(manual) == 0:
+            reg_contours.append(None)
+            continue
 
         registered = mic.register_contours(auto, manual) #manual, auto)
         if registered is None:

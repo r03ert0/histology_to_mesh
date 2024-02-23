@@ -109,8 +109,12 @@ def make_intermediate_mesh(
     save_reference_image(all_regions, destination)
 
     nii_mic, original_center = compute_mask_volume(all_regions, regions, voxdim)
+
     path = os.path.join(destination, "3_mask.nii.gz")
-    nib.save(nii_mic, path)
+    if not overwrite and os.path.exists(path):
+        nii_mic = nib.load(path)
+    else:
+        nib.save(nii_mic, path)
 
     smo_mic = compute_sdf(nii_mic)
 

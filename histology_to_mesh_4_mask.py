@@ -47,15 +47,14 @@ def get_volume_min_max(verts_registered):
     return vmin_registered, vmax_registered, center
 
 def compute_mask(registered_contours, voxdim, vmin_registered, vmax_registered, offset=2):
-    '''make a nifti volume with a brain mask'''
+    '''Make a nifti volume with a brain mask.
+    A mask is created by filling the contours in registered_contours. The offset prevents
+    filling operation to fail when the contour is touching the borders of the image.'''
     size = vmax_registered - vmin_registered
     size[2] = len(registered_contours)
 
     print('''@todo:
-1) the offset thing here looks quite useless. It may be useful
-   for the computation of the final mesh, but here I think it
-   doesn't do anything (to check).
-2) how does this function compare with mic.dataset_to_nifti?''')
+1) how does this function compare with mic.dataset_to_nifti?''')
 
     img_registered = np.zeros([int(x) + 2*offset for x in size], 'uint8')
     for slice_index, regions in enumerate(registered_contours):

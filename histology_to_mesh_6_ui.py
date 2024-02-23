@@ -3,6 +3,7 @@ Generate an web tool for manually aligning contours
 to form a 3D model
 '''
 
+import os
 import sys
 import numpy as np
 from tqdm import tqdm
@@ -45,7 +46,8 @@ def make_svg(registered_contours):
 
 def make_js(svg, nslices):
     '''Add the UI javascript code'''
-    with open("./ui_template.html") as file:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(f"{current_dir}/ui_template.html") as file:
         html = file.read()
         html = html.replace("<svg></svg>", svg)
         html = html.replace("let nslices;", f"let nslices = {nslices};")
