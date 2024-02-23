@@ -45,12 +45,21 @@ def compute_mask_volume(all_regions, regions, voxdim):
 
     return nii_mic, center_mic
 
-def compute_sdf(mask):
+def compute_sdf(mask, z_padding = 20):
     '''make SDF'''
     img_mic = mask.get_fdata()
-    nimg_mic = img_mic == 0
-    pos_mic = distance_transform_edt(img_mic)
-    neg_mic = distance_transform_edt(nimg_mic)
+
+    img_padded = np.zeros((
+        img_mic.shape[0],
+        img_mic.shape[1],
+        img_mic.shape[2] + 2*z_padding
+    ))
+
+    img_padded[:, :, z_padding:-z_padding] = img_mic[:, :, :]
+
+    nimg_padded = img_padded == 0
+    pos_mic = distance_transform_edt(img_padded)
+    neg_mic = distance_transform_edt(nimg_padded)
     res_mic = pos_mic - neg_mic
 
     return gaussian(res_mic, sigma=5)
@@ -62,10 +71,10 @@ def save_sdf_as_nii(img, voxdim, destination):
     affine[1, 1] = voxdim[1]
     affine[2, 2] = voxdim[2]
     nii = nib.Nifti1Image(img.astype(np.float32), affine=affine)
-    path = os.path.join(destination, "4_sdf.nii.gz")
+    path = os.path.join(destination, "4_sdf_padded.nii.gz")
     nib.save(nii, path)
 
-def compute_mesh(sdf, voxdim, original_center):
+def compute_mesh(sdf, voxdim, original_center, z_padding):
     '''make the intermediate mesh'''
 
     print("@todo: compute_mesh in hm_2 is identical to make_mesh in hm_5")
@@ -82,6 +91,10 @@ def compute_mesh(sdf, voxdim, original_center):
     # decimate
     success, verts, f_1, _, _ = igl.decimate(v_marching_cubes, f_marching_cubes, 10000)
     print("decimation success:", success)
+
+    # compensate for z_padding
+    verts[:, 2] -= z_padding * voxdim[2]
+    displacement[2] += z_padding
 
     # improve triangulation
     edge_lengths = igl.edge_lengths(verts, f_1)
@@ -116,11 +129,12 @@ def make_intermediate_mesh(
     else:
         nib.save(nii_mic, path)
 
-    smo_mic = compute_sdf(nii_mic)
+    z_padding = 20
+    smo_mic = compute_sdf(nii_mic, z_padding)
 
     save_sdf_as_nii(smo_mic, voxdim, destination)
 
-    verts, tris, displacement = compute_mesh(smo_mic, voxdim, original_center)
+    verts, tris, displacement = compute_mesh(smo_mic, voxdim, original_center, z_padding)
     path = os.path.join(destination, "5_intermediate_mesh.ply")
     igl.write_triangle_mesh(path, verts, tris, force_ascii=False)
     path = os.path.join(destination, "6_displacement.npz")

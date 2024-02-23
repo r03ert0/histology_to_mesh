@@ -7,9 +7,9 @@ import nibabel as nib
 from scipy.ndimage import distance_transform_edt
 import igl
 from skimage.filters import gaussian
-from skimage import measure
+from skimage import measure, transform, restoration
 
-def make_sdf(destination):
+def make_sdf(destination, scale=1.0, z_padding = 20):
     '''make sdf from mask'''
     path = os.path.join(destination, "8_final_mask.nii.gz")
     nii_registered = nib.load(path)
@@ -19,14 +19,51 @@ def make_sdf(destination):
     The sdf here and its smoothing could use some offset.
     ''')
 
-    # make sdf volume
-    nimg_registered = img_registered == 0
-    pos_registered = distance_transform_edt(img_registered)
-    neg_registered = distance_transform_edt(nimg_registered)
-    res_registered = pos_registered - neg_registered
+    img_padded = np.zeros((
+        img_registered.shape[0],
+        img_registered.shape[1],
+        img_registered.shape[2] + 2*z_padding
+    ))
+    img_padded[:,:,z_padding:-z_padding] = img_registered
 
-    # smooth a bit
-    return gaussian(res_registered, sigma=2)
+    # make sdf volume
+    # nimg_padded = img_padded == 0
+    # pos_registered = distance_transform_edt(img_padded)
+    # neg_registered = distance_transform_edt(nimg_padded)
+    # res_registered = pos_registered - neg_registered
+    res_registered = np.array(img_padded, dtype=np.float32)
+
+    # rescaling
+    img1 = transform.rescale(gaussian(res_registered, sigma=[4, 4, 2]), [1, 1, scale])
+    print("img1:", img1.min(), img1.max(), img1.sum())
+
+    # simple copy
+    res = img1
+
+    # # high-pass filtering
+    # img2 = gaussian(img1, sigma=[8, 8, 4])
+    # print("img2:", img2.min(), img2.max(), img2.sum())
+    # res = (img1 - 0.85 * img2)
+    # print("rescaled:", res.min(), res.max(), res.sum())
+
+    # # non-local means: 6h to finish!
+    # res = restoration.denoise_nl_means(img1, fast_mode=True)
+
+    # shift boundary
+    res -= 5.0 # nctx
+    # res -= 0.5 # gw
+
+    # sigmoidal clipping
+    half_width = 2.0
+    a = -np.log(1/3)/half_width
+    res = 2/(1 + np.exp(-a * res)) - 1
+
+    # rescaling values, to save as int16
+    res *= 1000
+
+    # print("clipped:", res.min(), res.max())
+
+    return res
 
 def make_mesh(sdf, voxdim, original_center, level=0):
     '''make the final mesh'''
@@ -64,14 +101,24 @@ mesh (set overwrite=True to compute it again).''')
         return
     print("Computing the final mesh")
 
-    sdf = make_sdf(destination)
+    scale = 4.0
+    z_padding = 20
+    sdf = make_sdf(destination, scale, z_padding)
     if len(sdf.shape) == 4:
         sdf = sdf[:,:,:,0]
+    affine = np.eye(4)
+    affine[0, 0] = voxdim[0]
+    affine[1, 1] = voxdim[1]
+    affine[2, 2] = voxdim[2]/scale
+    print(affine)
+    print(sdf.shape)
+    nii = nib.Nifti1Image(sdf.astype(np.int16), affine=affine)
+    nib.save(nii, os.path.join(destination, "8_final_sdf_padded.nii.gz"))
 
     path = os.path.join(destination, "9_contours_center.npz")
     original_center = np.load(path, allow_pickle=True)["contours_center"]
 
-    verts, tris, displacement = make_mesh(sdf, voxdim, original_center, level)
+    verts, tris, displacement = make_mesh(sdf, [voxdim[0], voxdim[1], voxdim[2]/scale], original_center, level)
     igl.write_triangle_mesh(dst, verts, tris, force_ascii=False)
     path = os.path.join(destination, "11_displacement.npz")
     np.savez_compressed(path, displacement=displacement)

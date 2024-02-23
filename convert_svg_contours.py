@@ -1,22 +1,8 @@
-import json
 import numpy as np
 import os
 import sys
 import xmltodict as x2d
 import re
-
-# def json2array(data):
-#     registered_contours = []
-#     for ind in range(len(data)):
-#         row = data[len(data) - ind -1]
-#         new_row = []
-#         for path in row:
-#             new_path = np.array(path)
-#             new_row.append(new_path)
-#         registered_contours.append(new_row)
-#     print(registered_contours[0][0].shape)
-
-#     return registered_contours
 
 def path_verts(p):
     d = p["@d"]
@@ -53,11 +39,6 @@ def apply_path_transforms(p):
 
 def apply_group_transforms(g):
   '''apply group transforms to inner paths'''
-
-  # print(g["@id"])
-  # style = g["@style"]
-  # transform = style.split("; transform:")[1]
-  # tr = [re.split(r"([^\(]+)\(([^\)]+)\)", t)[1:3] for t in transform.split(" ") if len(t)>0]
 
   if "@style" not in g or "transform" not in g["@style"]:
       return g
